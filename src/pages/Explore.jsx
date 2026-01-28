@@ -8,6 +8,7 @@ import { useGlobalStats } from "../context/GlobalStatsContext";
 
 const Explore = () => {
   const [competitions, setCompetitions] = useState([]);
+  const [categories, setCategories] = useState(['all']);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -29,11 +30,17 @@ const Explore = () => {
 
     const controller = new AbortController();
 
-    const fetchCompetitions = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/comp`, { signal: controller.signal });
-        if (!res.ok) throw new Error('Failed to fetch competitions');
-        const data = await res.json();
+        // Fetch competitions and competition types in parallel
+        const [compRes, typeRes] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL}/comp`, { signal: controller.signal }),
+          fetch(`${import.meta.env.VITE_API_URL}/comp/type`, { signal: controller.signal })
+        ]);
+
+        // Handle competitions
+        if (!compRes.ok) throw new Error('Failed to fetch competitions');
+        const data = await compRes.json();
         const fetched = (data.competitions || []).map((comp, idx) => ({
           id: comp._id,
           title: comp.compName || 'Untitled Competition',
@@ -41,19 +48,28 @@ const Explore = () => {
           category: comp.compType?.name || comp.compType || 'General',
           prize: comp.price || 'Free',
           participants: comp.participantCount || 0,
-          // Provide a mock future deadline for frontend display
           deadline: new Date(Date.now() + (7 + idx) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           difficulty: ['Beginner', 'Intermediate', 'Advanced'][idx % 3],
           tags: comp.compType ? [comp.compType?.name || comp.compType] : [],
-          // Use frontend mock images for now
           image: mockImages[idx % mockImages.length],
           organizer: comp.compOwnerUserId?.username || 'Organizer',
           status: comp.isPrivate ? 'Private' : 'Active'
         }));
-
         setCompetitions(fetched);
+
+        // Handle competition types
+        if (typeRes.ok) {
+          const typeData = await typeRes.json();
+          // Extract category names from competition types
+          const categoryNames = typeData.map(type => type.compTypeName || type.name).filter(Boolean);
+          setCategories(['all', ...categoryNames]);
+        } else {
+          // Fallback: extract unique categories from fetched competitions
+          const uniqueCategories = [...new Set(fetched.map(c => c.category).filter(c => c && c !== 'General'))];
+          setCategories(['all', ...uniqueCategories]);
+        }
       } catch (err) {
-        console.error('Error fetching competitions:', err);
+        console.error('Error fetching data:', err);
         toast.error('Could not load competitions. Showing no results.');
         setCompetitions([]);
       } finally {
@@ -61,12 +77,10 @@ const Explore = () => {
       }
     };
 
-    fetchCompetitions();
+    fetchData();
 
     return () => controller.abort();
   }, []);
-
-  const categories = ['all', 'Design', 'Technology', 'Development', 'Data Science', 'Security', 'Gaming'];
 
   const filteredCompetitions = competitions.filter(comp => {
     const matchesSearch = comp.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

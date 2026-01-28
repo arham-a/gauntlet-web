@@ -105,15 +105,8 @@ const AddComp = () => {
 
       const result = await response.json();
       
-      // Add the created competition to user's created competitions
-      if (result.competition && result.competition._id) {
-        await fetch(`${import.meta.env.VITE_API_URL}/user/${userId}/${result.competition._id}/myCreatedComp`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      }
+      // Note: Backend already adds the competition to user's myCreatedComp
+      // in the createCompetition controller, so we don't need to call it again
 
       // Refresh user data and global stats
       await refreshUserData();
