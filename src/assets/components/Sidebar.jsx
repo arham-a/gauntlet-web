@@ -65,7 +65,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent">
-                  CompetiConnect
+                  Gauntlet
                 </h2>
                 <p className="text-xs text-gray-400">Competition Platform</p>
               </div>

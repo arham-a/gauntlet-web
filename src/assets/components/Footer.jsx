@@ -13,16 +13,16 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="md:col-span-2">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent mb-4">
-              CompetiConnect
+              Gauntlet
             </h2>
             <p className="text-gray-400 max-w-md mb-4">
-              The ultimate platform for competitions. Join, compete, and win with talented 
-              individuals from around the world.
+              Host a competition or run someone else's. Set the challenge, judge the
+              submissions, crown a winner.
             </p>
             <div className="flex items-center space-x-2 text-gray-400">
               <EnvelopeIcon className="h-5 w-5 text-red-400" />
-              <a href="mailto:support@competiconnect.com" className="hover:text-red-400 transition-colors">
-                support@competiconnect.com
+              <a href="mailto:support@gauntlet.dev" className="hover:text-red-400 transition-colors">
+                support@gauntlet.dev
               </a>
             </div>
           </div>
@@ -86,7 +86,7 @@ const Footer = () => {
         <div className="border-t border-gray-800 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <p className="text-gray-500 text-sm">
-              © {currentYear} CompetiConnect. All rights reserved.
+              © {currentYear} Gauntlet. All rights reserved.
             </p>
             <p className="text-gray-500 text-sm flex items-center mt-4 md:mt-0">
               Made with <HeartIcon className="h-4 w-4 text-red-500 mx-1" /> for competitors worldwide

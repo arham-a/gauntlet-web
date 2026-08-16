@@ -1,124 +1,71 @@
-# 🏆 CompetiConnect
+# Gauntlet
 
-![CompetiConnect Banner](https://via.placeholder.com/1200x400?text=Welcome+to+CompetiConnect)
+**Host a competition. Crown a winner.**
 
-## 🌐 Live Website
-🔗 [Visit CompetiConnect](https://competi-connect.vercel.app/)
+Gauntlet is a platform for running competitions end to end — not just listing them. Anyone can host: set a challenge, take applications, collect submissions, score them, and publish a leaderboard.
 
----
-
-## 🚀 *Project Title:* CompetiConnect
-
-### 💡 *Brief Description of Your Idea:*
-CompetiConnect is a comprehensive, user-friendly web application designed to create, share, and participate in various competitions across diverse fields. In today's competitive world, there is no unified platform where competitions can be easily discovered, shared, and joined. This platform bridges that gap by introducing a structured, accessible system catering to both public and private competitions.
-
-### 🔑 **Key Features:**
-- 🔓 **Public Competitions:** Instantly accessible to any registered user.
-- 🔐 **Private Competitions:** Require form submission and admin approval for access.
-- 🧾 **Interactive Tabs:** Includes Rule Book, Problem Statement, Announcements, and Leaderboard.
-- 📢 **Announcements:** Real-time admin updates.
-- 📊 **Leaderboard:** Displays participant rankings after submission evaluation.
-- 🔍 **Guest Browsing:** Explore competitions without logging in.
-
-### 🖼️ **Platform Overview:**
-![Dashboard Preview](https://via.placeholder.com/600x300?text=Dashboard+Preview)
-
-## 🛠️ **Platform Navigation:**
-
-1. **🏆 Rule Book:**
-   - Comprehensive competition guidelines.
-   - Clear instructions to ensure fair play.
-
-2. **📝 Problem Statement:**
-   - Detailed documentation outlining the challenge.
-   - Provides clarity on expectations.
-
-3. **📢 Announcements:**
-   - Real-time updates from admins.
-   - Keeps participants informed of key changes.
-
-4. **🏅 Leaderboard:**
-   - Displays participant scores after submissions are evaluated.
-   - Automatically updates after admin approval.
+This repository is the web client. The API lives in [gauntlet-api](https://github.com/arham-a/gauntlet-api).
 
 ---
 
-## 🧑‍💼 **Admin Perspective and Management Features:**
+## What it does
 
-- **Competition Creation:**
-  - Specify name, rule book, problem statement, and deadlines.
-  - Choose competition type (public/private).
+**For organizers**
 
-- **Participant Management:**
-  - Monitor registrations and approve/disapprove applications.
+- Create a competition with a problem statement, rulebook, and submission rules
+- Make it public, or private behind a passcode with manual approval
+- Set an entry price, or run it free
+- Review applications (including uploaded payment slips) and accept or reject entrants
+- Broadcast announcements to everyone in the competition
+- Download ZIP submissions, score them, and publish the leaderboard
 
-- **Submission Review:**
-  - Download and evaluate ZIP file submissions.
-  - Assign scores and publish leaderboard.
+**For participants**
 
-- **Announcement Broadcasting:**
-  - Post important updates accessible to all participants.
-
-![Admin Dashboard](https://via.placeholder.com/600x300?text=Admin+Dashboard)
+- Browse and search competitions without an account
+- Filter by category, price, and public/private
+- Apply to private competitions or join public ones instantly
+- Read the brief, track announcements, submit a solution
+- Follow your rank, points, and history from your profile
 
 ---
 
-## 🛠️ **Run Backend Locally:**
+## Tech stack
 
-🔗 **Backend Repo:** [CompetiConnect Backend](https://github.com/owaisrafiq05/CompetiConnect-Backend)
+React 19 · Vite 6 · Tailwind CSS 4 · React Router 7 · HeroUI · Framer Motion · Axios
 
-### ⚙️ **Setup Instructions:**
+---
+
+## Running locally
+
+You need the API running first — see [gauntlet-api](https://github.com/arham-a/gauntlet-api).
 
 ```bash
-# Clone the repository
-git clone https://github.com/owaisrafiq05/CompetiConnect-Backend.git
-
-# Navigate into the directory
-cd CompetiConnect-Backend
-
-# Install dependencies
 npm install
-
-# Configure environment variables
-Create a .env file and add necessary environment variables.
-
-# Start the backend server
-npm start
+cp .env.example .env    # then set VITE_API_URL
+npm run dev             # http://localhost:5173
 ```
 
----
+### Environment
 
-### 📡 **API Endpoints:**
-| Endpoint         | Method | Description                   |
-|------------------|--------|-------------------------------|
-| `/api/competitions` | GET    | Fetch all competitions         |
-| `/api/competitions/:id` | GET    | Fetch a specific competition    |
-| `/api/competitions` | POST   | Create a new competition        |
-| `/api/competitions/:id` | PUT    | Update competition details     |
-| `/api/competitions/:id` | DELETE | Delete a competition            |
+| Variable | Description |
+| --- | --- |
+| `VITE_API_URL` | Base URL of the API, **no trailing slash**. `http://localhost:5000` locally. |
 
----
+`VITE_API_URL` is read at **build** time, not run time. Changing it means rebuilding and redeploying — it is baked into the bundle.
 
-### 🎨 **Tech Stack:**
-- ⚛️ React.js
-- 💾 Node.js + Express.js
-- 📦 MongoDB
-- ☁️ Vercel for frontend deployment
-- 🔐 JWT Authentication
+### Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Dev server with HMR |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve the built output |
+| `npm run lint` | ESLint |
 
 ---
 
-### 📱 **Responsive Design:**
-- Fully optimized for both desktop and mobile devices.
+## Deployment
 
-### 🎯 **Future Enhancements:**
-- Real-time chat for participants.
-- Interactive competition calendar.
-- Enhanced analytics for admins.
+Deployed on Vercel. `vercel.json` rewrites all routes to `index.html` so client-side routing works on deep links and refreshes.
 
----
-
-**🌟 Experience the thrill of competition like never before with [CompetiConnect](https://competi-connect.vercel.app/)! 🌟**
-
-![Thank You](https://via.placeholder.com/600x200?text=Thank+You+for+Visiting!)
-
+Set `VITE_API_URL` in the Vercel project's environment variables before deploying — a build with the wrong value will silently point at the wrong backend.

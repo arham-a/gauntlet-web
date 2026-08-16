@@ -117,9 +117,8 @@ const Home = () => {
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6">
             <span className="bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent">
-              Competi
+              Gauntlet
             </span>
-            <span className="text-white">Connect</span>
           </h1>
           <p className="text-xl lg:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
             Join the ultimate competition platform where talent meets opportunity. 
