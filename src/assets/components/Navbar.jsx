@@ -1,13 +1,15 @@
-import React from "react";
 import { Bars3Icon } from "@heroicons/react/24/outline";
+import { Link } from "react-router-dom";
 
-const Navbar = ({ toggleSidebar }) => {
-  return (
-    <nav className="bg-dark text-white p-4 flex justify-between items-center md:hidden">
-      <h1 className="text-lg font-bold">Gauntlet</h1>
-      <Bars3Icon className="w-6 h-6 cursor-pointer" onClick={toggleSidebar} />
-    </nav>
-  );
-};
+const Navbar = ({ toggleSidebar }) => (
+  <header className="md:hidden flex items-center justify-between h-14 px-4 bg-surface border-b border-rule">
+    <Link to="/" className="font-semibold tracking-tight text-ink">
+      Gauntlet
+    </Link>
+    <button onClick={toggleSidebar} className="p-1 text-muted hover:text-ink" aria-label="Open menu">
+      <Bars3Icon className="w-6 h-6" />
+    </button>
+  </header>
+);
 
 export default Navbar;

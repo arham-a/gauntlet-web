@@ -1,236 +1,115 @@
-import React, { useState, useEffect } from "react";
-import { toast, Toaster } from "sonner";
-import { MagnifyingGlassIcon, PlusIcon, TrophyIcon, UsersIcon, FireIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import CompetitionCard from "../assets/components/CompetitionCard";
+import { Button, Empty, Fact } from "../assets/components/ui";
 import { useGlobalStats } from "../context/GlobalStatsContext";
+import { deadlineState } from "../lib/competition";
 
 const Home = () => {
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState('all');
-  const { globalStats, refreshGlobalStats } = useGlobalStats();
   const navigate = useNavigate();
+  const { globalStats } = useGlobalStats();
 
   useEffect(() => {
-    const fetchCompetitions = async () => {
+    const controller = new AbortController();
+    (async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/comp`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch competitions");
-        }
-        const data = await response.json();
-        // Transform the API data to match our CompetitionCard props structure
-        const transformedData = data.competitions.map((comp) => ({
-          id: comp._id,
-          name: comp.compName,
-          description: comp.compDescription,
-          admin: comp.compType,
-          entryFee: comp.price === 0 ? "Free" : `$${comp.price}`,
-          isPrivate: comp.isPrivate,
-        }));
-        setCompetitions(transformedData);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/comp`, { signal: controller.signal });
+        if (!res.ok) throw new Error("Could not load competitions");
+        const data = await res.json();
+        setCompetitions(data.competitions || []);
       } catch (err) {
-        setError(err.message);
-        toast.error('Failed to load competitions');
+        if (err.name !== "AbortError") toast.error(err.message);
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchCompetitions();
+    })();
+    return () => controller.abort();
   }, []);
 
-  const filteredCompetitions = competitions.filter((comp) => {
-    const matchesSearch = comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         comp.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeFilter === 'all') return matchesSearch;
-    if (activeFilter === 'free') return matchesSearch && comp.entryFee === 'Free';
-    if (activeFilter === 'private') return matchesSearch && comp.isPrivate;
-    if (activeFilter === 'public') return matchesSearch && !comp.isPrivate;
-    
-    return matchesSearch;
-  });
+  /* Closing soonest first, so the most urgent thing is the first thing. */
+  const { closing, rest } = useMemo(() => {
+    const open = competitions.filter((c) => !deadlineState(c.deadline).isClosed);
+    const withDate = open
+      .filter((c) => c.deadline)
+      .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    const withoutDate = open.filter((c) => !c.deadline);
+    const ordered = [...withDate, ...withoutDate];
+    return { closing: ordered.slice(0, 3), rest: ordered.slice(3) };
+  }, [competitions]);
 
-  // Format participant count for display
-  const formatParticipantCount = (count) => {
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K+`;
-    }
-    return count.toString();
-  };
-
-  const stats = [
-    { label: 'Total Competitions', value: globalStats.totalCompetitions || competitions.length, icon: TrophyIcon, color: 'text-red-400' },
-    { label: 'Active Participants', value: formatParticipantCount(globalStats.totalParticipants), icon: UsersIcon, color: 'text-blue-400' },
-    { label: 'Trending Now', value: globalStats.trendingCompetitions || Math.min(competitions.length, 5), icon: FireIcon, color: 'text-orange-400' },
-  ];
-
-  if (loading) {
-    return (
-      <div className="font-['Poppins',sans-serif] flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading competitions...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="font-['Poppins',sans-serif] flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <p className="text-white text-xl mb-2">Oops! Something went wrong</p>
-          <p className="text-gray-400">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  const openCount = competitions.filter((c) => !deadlineState(c.deadline).isClosed).length;
 
   return (
-    <div className="font-['Poppins',sans-serif]">
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1a1a1a',
-            color: '#fff',
-            border: '1px solid #dc2626',
-          },
-        }}
-      />
-      
-      {/* Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-red-600/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-20 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-red-400/3 rounded-full blur-3xl animate-pulse delay-500"></div>
+    <div className="max-w-6xl mx-auto px-5 sm:px-8 py-8">
+      {/* Intro — a sentence and an action, not a full screen of type. */}
+      <div className="pb-6 mb-6 border-b border-rule flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Gauntlet</h1>
+          <p className="text-muted text-sm mt-1 max-w-xl">
+            Host a competition or enter someone else's. Set the brief, review entries, publish
+            the standings.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => navigate("/explore")}>Explore</Button>
+          <Button onClick={() => navigate("/add-comp")}>Host a competition</Button>
+        </div>
       </div>
 
-      {/* Hero Section */}
-      <div className="relative z-10 pt-20 pb-16 px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6">
-            <span className="bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent">
-              Gauntlet
-            </span>
-          </h1>
-          <p className="text-xl lg:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Join the ultimate competition platform where talent meets opportunity. 
-            Showcase your skills, compete with the best, and win amazing prizes.
-          </p>
-          
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-sm rounded-lg p-6 border border-red-900/20">
-                <div className="flex items-center justify-center mb-4">
-                  <stat.icon className={`w-8 h-8 ${stat.color}`} />
-                </div>
-                <div className="text-3xl font-bold text-white mb-2">{stat.value}</div>
-                <div className="text-gray-400">{stat.label}</div>
-              </div>
+      <div className="grid grid-cols-3 gap-6 sm:gap-10 pb-6 mb-8 border-b border-rule">
+        <Fact k="Competitions">{globalStats?.totalCompetitions ?? competitions.length}</Fact>
+        <Fact k="Open now">{openCount}</Fact>
+        <Fact k="Entrants">{globalStats?.totalParticipants ?? 0}</Fact>
+      </div>
+
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-base font-semibold text-ink">Closing soonest</h2>
+        <button onClick={() => navigate("/explore")} className="text-sm text-muted hover:text-ink">
+          See all
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="border border-rule rounded-sm p-5 animate-pulse">
+              <div className="h-3 w-24 bg-surface-alt rounded" />
+              <div className="h-4 w-3/4 bg-surface-alt rounded mt-4" />
+              <div className="h-3 w-full bg-surface-alt rounded mt-3" />
+              <div className="h-9 w-full bg-surface-alt rounded mt-6" />
+            </div>
+          ))}
+        </div>
+      ) : closing.length === 0 ? (
+        <Empty
+          title="Nothing is open right now"
+          action={<Button onClick={() => navigate("/add-comp")}>Host a competition</Button>}
+        >
+          Once someone opens a competition it appears here, ordered by how soon it closes.
+        </Empty>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {closing.map((c) => (
+              <CompetitionCard key={c._id} comp={c} />
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 px-4 lg:px-8 pb-20">
-        <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Available <span className="text-red-400">Competitions</span>
-            </h2>
-            <p className="text-gray-400 text-lg">Choose your challenge and start competing today</p>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="mb-12">
-            <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
-              {/* Search Bar */}
-              <div className="relative flex-grow max-w-2xl">
-                <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search competitions by name or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-900/50 border border-gray-700 rounded-lg text-white 
-                           focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                           transition-all duration-300 placeholder-gray-400 backdrop-blur-sm"
-                />
-              </div>
-
-              {/* Filter Buttons */}
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { key: 'all', label: 'All' },
-                  { key: 'free', label: 'Free' },
-                  { key: 'public', label: 'Public' },
-                  { key: 'private', label: 'Private' }
-                ].map((filter) => (
-                  <button
-                    key={filter.key}
-                    onClick={() => setActiveFilter(filter.key)}
-                    className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-                      activeFilter === filter.key
-                        ? 'bg-red-600 text-white shadow-lg shadow-red-500/25'
-                        : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
+          {rest.length > 0 && (
+            <>
+              <h2 className="text-base font-semibold text-ink mt-12 mb-4">Also open</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {rest.map((c) => (
+                  <CompetitionCard key={c._id} comp={c} />
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Competition Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredCompetitions.length > 0 ? (
-              filteredCompetitions.map((comp) => (
-                <div key={comp.id} className="transform hover:scale-105 transition-all duration-300">
-                  <CompetitionCard comp={comp} />
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-20">
-                <div className="text-gray-500 text-6xl mb-4">🔍</div>
-                <h3 className="text-2xl font-bold text-white mb-2">No competitions found</h3>
-                <p className="text-gray-400">
-                  {searchQuery ? 'Try adjusting your search terms or filters' : 'Check back later for new competitions'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Call to Action */}
-          {competitions.length > 0 && (
-            <div className="text-center mt-16">
-              <div className="bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-sm rounded-lg p-8 border border-red-900/20">
-                <h3 className="text-2xl font-bold text-white mb-4">Ready to Create Your Own Competition?</h3>
-                <p className="text-gray-400 mb-6">Host your own competition and challenge others in your field</p>
-                <button 
-                  onClick={() => navigate('/add-comp')}
-                  className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 
-                                 text-white rounded-lg transition-all duration-300 font-semibold text-lg
-                                 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-red-500/25
-                                 flex items-center space-x-2 mx-auto">
-                  <PlusIcon className="w-5 h-5" />
-                  <span>Create Competition</span>
-                </button>
-              </div>
-            </div>
+            </>
           )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

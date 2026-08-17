@@ -9,54 +9,55 @@ import Home from "./pages/Home";
 import CompetitonPage from "./pages/CompetitonPage";
 import Login from "./pages/Login";
 import SignUp from "./pages/Signup";
-import { toast, Toaster } from "sonner";
 import AddComp from "./pages/AddComp";
+import NotFound from "./pages/NotFound";
+import { Toaster } from "sonner";
 import { UserProvider } from "./context/UserContext";
 import { GlobalStatsProvider } from "./context/GlobalStatsContext";
 
 const App = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const location = useLocation(); // Get the current location
+  const location = useLocation();
 
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
+  const toggleSidebar = () => setIsOpen((v) => !v);
 
-  // Define paths where the sidebar should not be shown
-  const noSidebarPaths = ["/login", "/signup"];
+  // Auth screens stand alone, without the app chrome around them.
+  const bareRoutes = ["/login", "/signup"];
+  const isBare = bareRoutes.includes(location.pathname);
 
   return (
     <UserProvider>
       <GlobalStatsProvider>
-        <div className="flex h-screen overflow-hidden">
-          {/* Sidebar should only render if the current path is not login or signup */}
-          {!noSidebarPaths.includes(location.pathname) && (
-            <>
-              <Toaster/>
-              <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />
-            </>
-          )}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "var(--surface)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
+              borderRadius: "4px",
+            },
+          }}
+        />
+        <div className="flex h-screen overflow-hidden bg-paper">
+          {!isBare && <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />}
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col h-screen bg-black overflow-hidden">
-            {/* Navbar for Mobile */}
-            {!noSidebarPaths.includes(location.pathname) && (
-              <Navbar toggleSidebar={toggleSidebar} />
-            )}
+          <div className="flex-1 flex flex-col h-screen overflow-hidden">
+            {!isBare && <Navbar toggleSidebar={toggleSidebar} />}
 
-            {/* Page Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto scrollbar-thin">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/competitions" element={<Competition />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/competition-page/:id" element={<CompetitonPage/>} />
-                <Route path="/add-comp" element={<AddComp/>} />
-                <Route path="/login" element={<Login/>} />
-                <Route path="/signup" element={<SignUp/>} />
+                <Route path="/competition-page/:id" element={<CompetitonPage />} />
+                <Route path="/add-comp" element={<AddComp />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
-            </div>
+            </main>
           </div>
         </div>
       </GlobalStatsProvider>

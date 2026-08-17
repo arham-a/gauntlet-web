@@ -145,10 +145,12 @@ export const UserProvider = ({ children }) => {
   // Helper function to get relative time
   const getRelativeTime = (dateString) => {
     const date = new Date(dateString);
+    // A missing or unparseable date must degrade to null, not "NaN years ago".
+    if (!dateString || Number.isNaN(date.getTime())) return null;
     const now = new Date();
     const diffMs = now - date;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;

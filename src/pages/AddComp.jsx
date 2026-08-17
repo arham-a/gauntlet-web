@@ -1,378 +1,335 @@
 import { useState, useEffect } from "react";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import {
-  PlusCircleIcon,
-  DocumentTextIcon,
-  BookOpenIcon,
-  CogIcon,
-  LockClosedIcon,
-  TrophyIcon,
-  CloudArrowUpIcon
-} from "@heroicons/react/24/outline";
 import { useUser } from "../context/UserContext";
 import { useGlobalStats } from "../context/GlobalStatsContext";
+import { Button, PageHeader, Fact } from "../assets/components/ui";
+import { formatPrice, formatDate } from "../lib/competition";
+
+/*
+  Nine fields in one scroll became four steps. Each step is a decision the
+  organiser can answer in one sitting, and the last one shows what will be
+  published before it is.
+*/
+const STEPS = [
+  { key: "basics", title: "Basics", blurb: "What the competition is called and who it's for." },
+  { key: "brief", title: "The brief", blurb: "What entrants must do, and how they'll be judged." },
+  { key: "entry", title: "Entry and access", blurb: "Cost, closing date, and who can take part." },
+  { key: "review", title: "Review", blurb: "Check it over, then publish." },
+];
 
 const AddComp = () => {
-  const [compData, setCompData] = useState({
+  const [step, setStep] = useState(0);
+  const [types, setTypes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({
     compName: "",
-    compDescription: "",
     compType: "",
-    isPrivate: false,
-    passCode: "",
+    compDescription: "",
     problemStatement: "",
     compRuleBook: "",
     submissionRules: "",
+    price: "",
+    deadline: "",
+    isPrivate: false,
+    passCode: "",
   });
-  const [competitionTypes, setCompetitionTypes] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
-  const { refreshUserData, createCompetition } = useUser();
+  const { refreshUserData } = useUser();
   const { refreshGlobalStats } = useGlobalStats();
 
   const getUserId = () => {
-    const uidCookie = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('userID='));
-    return uidCookie ? uidCookie.split('=')[1] : null;
+    const c = document.cookie.split("; ").find((r) => r.startsWith("userID="));
+    return c ? c.split("=")[1] : null;
   };
 
   useEffect(() => {
-    const fetchCompetitionTypes = async () => {
+    (async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/comp/type`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch competition types');
-        }
-        const data = await response.json();
-        setCompetitionTypes(data);
-      } catch (err) {
-        toast.error(err.message);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/comp/type`);
+        if (res.ok) setTypes(await res.json());
+      } catch {
+        /* categories are optional; the field falls back to free text */
       }
-    };
-
-    fetchCompetitionTypes();
+    })();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setCompData((prevData) => ({
-      ...prevData,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+  const set = (k) => (e) => {
+    const v = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    setData((d) => ({ ...d, [k]: v }));
   };
 
-  const handleFileChange = (event) => {
-    setSelectedFile(event.target.files[0]);
+  /* Validation lives per step so the user is told what's missing where it's asked. */
+  const problems = (index) => {
+    const out = [];
+    if (index === 0) {
+      if (!data.compName.trim()) out.push("Give the competition a name");
+      if (!data.compType.trim()) out.push("Choose a category");
+      if (!data.compDescription.trim()) out.push("Write a short description");
+    }
+    if (index === 1) {
+      if (!data.problemStatement.trim()) out.push("Describe what entrants must do");
+      if (!data.compRuleBook.trim()) out.push("Add the rules");
+      if (!data.submissionRules.trim()) out.push("Say how entrants should submit");
+    }
+    if (index === 2) {
+      if (data.isPrivate && !data.passCode.trim()) out.push("Set a passcode for a private competition");
+      if (data.deadline && new Date(data.deadline) <= new Date())
+        out.push("The closing date must be in the future");
+    }
+    return out;
   };
 
-  const handleAddCompetition = async () => {
+  const next = () => {
+    const errs = problems(step);
+    if (errs.length) return toast.error(errs[0]);
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
+
+  const publish = async () => {
     const userId = getUserId();
     if (!userId) {
-      toast.error("Please login to add competitions");
+      toast.error("Sign in to host a competition");
+      return navigate("/login");
+    }
+
+    const allErrors = [0, 1, 2].flatMap(problems);
+    if (allErrors.length) {
+      toast.error(allErrors[0]);
       return;
     }
 
     setLoading(true);
-    setError(null);
-
     try {
-      const formData = {
-        compOwnerUserId: userId,
-        compName: compData.compName,
-        compDescription: compData.compDescription,
-        compType: compData.compType,
-        isPrivate: compData.isPrivate,
-        passCode: compData.isPrivate ? compData.passCode : "",
-        problemStatement: compData.problemStatement,
-        compRuleBook: compData.compRuleBook,
-        submissionRules: compData.submissionRules,
-      };
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/comp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/comp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compOwnerUserId: userId,
+          compName: data.compName.trim(),
+          compType: data.compType.trim(),
+          compDescription: data.compDescription.trim(),
+          problemStatement: data.problemStatement.trim(),
+          compRuleBook: data.compRuleBook.trim(),
+          submissionRules: data.submissionRules.trim(),
+          price: Number(data.price) || 0,
+          deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
+          isPrivate: data.isPrivate,
+          passCode: data.isPrivate ? data.passCode.trim() : null,
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add competition');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Could not publish this competition");
       }
 
-      const result = await response.json();
-      
-      // Note: Backend already adds the competition to user's myCreatedComp
-      // in the createCompetition controller, so we don't need to call it again
-
-      // Refresh user data and global stats
-      await refreshUserData();
-      await refreshGlobalStats();
-
-      toast.success('Successfully added competition!');
-      navigate('/');
+      const result = await res.json();
+      await Promise.all([refreshUserData(), refreshGlobalStats()]);
+      toast.success("Published");
+      navigate(`/competition-page/${result.competition._id}`);
     } catch (err) {
       toast.error(err.message);
-      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const field =
+    "w-full bg-surface border border-rule rounded-sm px-3 py-2 text-sm text-ink outline-none focus:border-rule-strong";
+  const area = `${field} min-h-28 resize-y leading-relaxed`;
+
+  const Label = ({ htmlFor, children, hint }) => (
+    <div className="mb-1.5">
+      <label htmlFor={htmlFor} className="label block">{children}</label>
+      {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
+    </div>
+  );
+
   return (
-    <div className="font-['Poppins',sans-serif]">
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1a1a1a',
-            color: '#fff',
-            border: '1px solid #dc2626',
-          },
-        }}
-      />
-      
-      {/* Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-red-600/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-20 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
+    <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8">
+      <PageHeader title="Host a competition">
+        {STEPS[step].blurb}
+      </PageHeader>
 
-      {/* Header */}
-      <div className="relative z-10 pt-20 pb-12 px-4 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-3 mb-6">
-            <TrophyIcon className="w-12 h-12 text-red-400" />
-            <h1 className="text-5xl font-bold text-white">
-              Create <span className="bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent">Competition</span>
-            </h1>
+      {/* Step rail — a real sequence, so numbering carries meaning. */}
+      <ol className="flex items-center gap-1 mb-8 overflow-x-auto no-scrollbar">
+        {STEPS.map((s, i) => (
+          <li key={s.key} className="flex items-center shrink-0">
+            <button
+              onClick={() => i < step && setStep(i)}
+              disabled={i > step}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-sm text-sm whitespace-nowrap transition-colors ${
+                i === step
+                  ? "bg-surface-alt text-ink font-medium"
+                  : i < step
+                  ? "text-muted hover:text-ink"
+                  : "text-muted/60 cursor-default"
+              }`}
+            >
+              <span className="num text-xs">{String(i + 1).padStart(2, "0")}</span>
+              {s.title}
+            </button>
+            {i < STEPS.length - 1 && <span className="w-4 h-px bg-rule mx-1" />}
+          </li>
+        ))}
+      </ol>
+
+      {/* ---------- Step 1 ---------- */}
+      {step === 0 && (
+        <div className="flex flex-col gap-5">
+          <div>
+            <Label htmlFor="compName">Name</Label>
+            <input id="compName" value={data.compName} onChange={set("compName")} className={field}
+              placeholder="e.g. NED Hack 2026" />
           </div>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Design and launch your own competition to challenge talented individuals worldwide
-          </p>
-        </div>
-      </div>
 
-      {/* Form */}
-      <div className="relative z-10 px-4 lg:px-8 pb-20">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-sm rounded-lg border border-red-900/30 shadow-2xl overflow-hidden">
-            
-            {/* Form Header */}
-            <div className="p-8 border-b border-red-900/20">
-              <div className="flex items-center space-x-3">
-                <PlusCircleIcon className="w-8 h-8 text-red-400" />
-                <h2 className="text-3xl font-bold text-white">Competition Details</h2>
-              </div>
-              <p className="text-gray-400 mt-2">Fill in the information below to create your competition</p>
-            </div>
+          <div>
+            <Label htmlFor="compType" hint="Entrants filter by this on Explore.">Category</Label>
+            {types.length > 0 ? (
+              <select id="compType" value={data.compType} onChange={set("compType")} className={field}>
+                <option value="">Choose a category</option>
+                {types.map((t) => (
+                  <option key={t._id || t.compTypeName} value={t.compTypeName}>{t.compTypeName}</option>
+                ))}
+              </select>
+            ) : (
+              <input id="compType" value={data.compType} onChange={set("compType")} className={field}
+                placeholder="e.g. Hackathon" />
+            )}
+          </div>
 
-            {/* Form Body */}
-            <div className="p-8 space-y-8">
-              {/* Basic Information Section */}
-              <div className="space-y-6">
-                <div className="flex items-center space-x-3 mb-6">
-                  <CogIcon className="w-6 h-6 text-red-400" />
-                  <h3 className="text-xl font-semibold text-white">Basic Information</h3>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 block">
-                      Competition Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="compName"
-                      value={compData.compName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                               focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                               transition-all duration-300 placeholder-gray-500"
-                      placeholder="Enter competition name"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 block">
-                      Competition Type *
-                    </label>
-                    <select
-                      name="compType"
-                      value={compData.compType}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                               focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                               transition-all duration-300"
-                      required
-                    >
-                      <option value="">Select Competition Type</option>
-                      {competitionTypes.map((type) => (
-                        <option key={type._id} value={type.compTypeName}>
-                          {type.compTypeName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-300 block">
-                    Description *
-                  </label>
-                  <textarea
-                    name="compDescription"
-                    value={compData.compDescription}
-                    onChange={handleChange}
-                    rows={4}
-                    className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                             focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                             transition-all duration-300 placeholder-gray-500 resize-none"
-                    placeholder="Describe your competition..."
-                    required
-                  />
-                </div>
-
-                {/* Privacy Settings */}
-                <div className="p-6 bg-black/30 rounded-lg border border-gray-700">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <LockClosedIcon className="w-5 h-5 text-red-400" />
-                    <h4 className="text-lg font-semibold text-white">Privacy Settings</h4>
-                  </div>
-                  
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="isPrivate"
-                      checked={compData.isPrivate}
-                      onChange={handleChange}
-                      className="w-5 h-5 text-red-600 bg-black/50 border-gray-600 rounded 
-                               focus:ring-red-500 focus:ring-2"
-                    />
-                    <span className="text-gray-300">Make this competition private</span>
-                  </label>
-                  
-                  {compData.isPrivate && (
-                    <div className="mt-4 space-y-2">
-                      <label className="text-sm font-medium text-gray-300 block">
-                        Pass Code (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        name="passCode"
-                        value={compData.passCode}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                                 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                                 transition-all duration-300 placeholder-gray-500"
-                        placeholder="Enter pass code for private access"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Content Section */}
-              <div className="space-y-6">
-                <div className="flex items-center space-x-3 mb-6">
-                  <DocumentTextIcon className="w-6 h-6 text-red-400" />
-                  <h3 className="text-xl font-semibold text-white">Competition Content</h3>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 block">
-                      Problem Statement *
-                    </label>
-                    <textarea
-                      name="problemStatement"
-                      value={compData.problemStatement}
-                      onChange={handleChange}
-                      rows={6}
-                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                               focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                               transition-all duration-300 placeholder-gray-500 resize-none"
-                      placeholder="Describe the problem participants need to solve..."
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 block">
-                      Competition Rules *
-                    </label>
-                    <textarea
-                      name="compRuleBook"
-                      value={compData.compRuleBook}
-                      onChange={handleChange}
-                      rows={6}
-                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                               focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                               transition-all duration-300 placeholder-gray-500 resize-none"
-                      placeholder="Define the rules and guidelines for your competition..."
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 block">
-                      Submission Guidelines *
-                    </label>
-                    <textarea
-                      name="submissionRules"
-                      value={compData.submissionRules}
-                      onChange={handleChange}
-                      rows={4}
-                      className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-lg text-white 
-                               focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 
-                               transition-all duration-300 placeholder-gray-500 resize-none"
-                      placeholder="Specify how participants should submit their solutions..."
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Form Footer */}
-            <div className="p-8 border-t border-red-900/20 bg-black/20">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  type="button"
-                  onClick={() => navigate('/')}
-                  className="flex-1 py-3 px-6 bg-gray-700 hover:bg-gray-600 text-white rounded-lg 
-                           transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddCompetition}
-                  disabled={loading}
-                  className="flex-1 py-3 px-6 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 
-                           text-white rounded-lg transition-all duration-300 font-semibold
-                           transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
-                           shadow-lg hover:shadow-red-500/25 flex items-center justify-center space-x-2"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Creating Competition...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CloudArrowUpIcon className="w-5 h-5" />
-                      <span>Create Competition</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+          <div>
+            <Label htmlFor="compDescription" hint="Two lines. This is what appears on the card.">
+              Short description
+            </Label>
+            <textarea id="compDescription" value={data.compDescription} onChange={set("compDescription")}
+              className={area} placeholder="Who it's open to and what entrants will do." />
           </div>
         </div>
+      )}
+
+      {/* ---------- Step 2 ---------- */}
+      {step === 1 && (
+        <div className="flex flex-col gap-5">
+          <div>
+            <Label htmlFor="problemStatement" hint="The challenge itself. Entrants read this first.">
+              Problem statement
+            </Label>
+            <textarea id="problemStatement" value={data.problemStatement} onChange={set("problemStatement")}
+              className={area} />
+          </div>
+
+          <div>
+            <Label htmlFor="compRuleBook" hint="Team size, what's allowed, how entries are judged.">
+              Rules
+            </Label>
+            <textarea id="compRuleBook" value={data.compRuleBook} onChange={set("compRuleBook")} className={area} />
+          </div>
+
+          <div>
+            <Label htmlFor="submissionRules" hint="Format, file types, and what must be included.">
+              How to submit
+            </Label>
+            <textarea id="submissionRules" value={data.submissionRules} onChange={set("submissionRules")}
+              className={area} />
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Step 3 ---------- */}
+      {step === 2 && (
+        <div className="flex flex-col gap-5">
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <Label htmlFor="price" hint="Leave empty for a free competition.">Entry fee (PKR)</Label>
+              <input id="price" type="number" min="0" value={data.price} onChange={set("price")}
+                className={field} placeholder="0" />
+            </div>
+
+            <div>
+              <Label htmlFor="deadline" hint="Entry and submissions close at this time.">Closing date</Label>
+              <input id="deadline" type="datetime-local" value={data.deadline} onChange={set("deadline")}
+                className={field} />
+            </div>
+          </div>
+
+          <div className="border border-rule rounded-sm p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={data.isPrivate} onChange={set("isPrivate")}
+                className="mt-0.5 accent-[var(--brand)]" />
+              <span>
+                <span className="text-sm text-ink font-medium block">Make this private</span>
+                <span className="text-xs text-muted block mt-0.5">
+                  Entrants apply with a passcode and you approve each one. Public competitions can be
+                  entered instantly.
+                </span>
+              </span>
+            </label>
+
+            {data.isPrivate && (
+              <div className="mt-4 pl-7">
+                <Label htmlFor="passCode" hint="Share this with the people you want to invite.">
+                  Passcode
+                </Label>
+                <input id="passCode" value={data.passCode} onChange={set("passCode")}
+                  className={`${field} sm:max-w-xs`} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Step 4 ---------- */}
+      {step === 3 && (
+        <div className="flex flex-col gap-6">
+          <div className="border border-rule rounded-sm p-5 bg-surface">
+            <span className="label">{data.compType || "Uncategorised"}</span>
+            <h2 className="text-lg font-semibold tracking-tight text-ink mt-2">{data.compName}</h2>
+            <p className="text-muted text-sm mt-1.5 leading-relaxed">{data.compDescription}</p>
+            <div className="grid grid-cols-3 gap-3 border-t border-rule mt-4 pt-4">
+              <Fact k="Entry">{formatPrice(data.price)}</Fact>
+              <Fact k="Closes">{data.deadline ? formatDate(data.deadline) : "No deadline"}</Fact>
+              <Fact k="Access">{data.isPrivate ? "Private" : "Public"}</Fact>
+            </div>
+          </div>
+
+          {!data.deadline && (
+            <p className="text-sm text-muted border-l-2 border-warn pl-3">
+              Without a closing date this competition stays open indefinitely and won't appear
+              under “Closing soonest”. You can add one now or leave it open.
+            </p>
+          )}
+
+          {[
+            ["Problem statement", data.problemStatement],
+            ["Rules", data.compRuleBook],
+            ["How to submit", data.submissionRules],
+          ].map(([title, body]) => (
+            <div key={title}>
+              <h3 className="label mb-2">{title}</h3>
+              <p className="text-sm text-ink whitespace-pre-line leading-relaxed">{body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ---------- Controls ---------- */}
+      <div className="flex items-center gap-2 mt-8 pt-6 border-t border-rule">
+        {step > 0 && (
+          <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>Back</Button>
+        )}
+        <span className="num text-xs text-muted ml-auto mr-2">
+          Step {step + 1} of {STEPS.length}
+        </span>
+        {step < STEPS.length - 1 ? (
+          <Button onClick={next}>Continue</Button>
+        ) : (
+          <Button onClick={publish} disabled={loading}>
+            {loading ? "Publishing…" : "Publish competition"}
+          </Button>
+        )}
       </div>
     </div>
   );

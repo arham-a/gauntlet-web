@@ -1,77 +1,175 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+/* Fonts are linked from index.html so they load in parallel with the CSS. */
+
+/*
+  Gauntlet design tokens.
+
+  Light is the default ground: rulebooks and problem statements are long-form
+  reading. Dark follows the system preference, and an explicit choice on
+  <html data-theme> beats the system in both directions.
+
+  Every colour lives here as a CSS variable so a component never has to know
+  which theme is active.
+*/
+:root {
+  --paper:       #F6F6F4;
+  --surface:     #FFFFFF;
+  --surface-alt: #F1F1EE;
+  --ink:         #15171A;
+  --muted:       #6A6E75;
+  --rule:        #E2E2DE;
+  --rule-strong: #CFCFC9;
+
+  --brand:       #A81F2D;
+  --brand-hover: #8E1926;
+  --brand-soft:  #F3E6E7;
+  --on-brand:    #FFFFFF;
+
+  --live:        #16624A;
+  --live-soft:   #E4EFEA;
+  --warn:        #8A5A00;
+  --warn-soft:   #F6EEDC;
+  --closed:      #6A6E75;
+  --closed-soft: #ECECE8;
+
+  --focus:       #2B6CB0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:       #101114;
+    --surface:     #17191D;
+    --surface-alt: #1D2025;
+    --ink:         #ECECE8;
+    --muted:       #9BA0A8;
+    --rule:        #272A2F;
+    --rule-strong: #383C43;
+
+    --brand:       #E4626D;
+    --brand-hover: #EE7A84;
+    --brand-soft:  #2A1A1D;
+    --on-brand:    #16090B;
+
+    --live:        #57B394;
+    --live-soft:   #14251F;
+    --warn:        #D9A441;
+    --warn-soft:   #262216;
+    --closed:      #9BA0A8;
+    --closed-soft: #22252A;
+
+    --focus:       #7CB1E8;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:       #101114;
+  --surface:     #17191D;
+  --surface-alt: #1D2025;
+  --ink:         #ECECE8;
+  --muted:       #9BA0A8;
+  --rule:        #272A2F;
+  --rule-strong: #383C43;
+
+  --brand:       #E4626D;
+  --brand-hover: #EE7A84;
+  --brand-soft:  #2A1A1D;
+  --on-brand:    #16090B;
+
+  --live:        #57B394;
+  --live-soft:   #14251F;
+  --warn:        #D9A441;
+  --warn-soft:   #262216;
+  --closed:      #9BA0A8;
+  --closed-soft: #22252A;
+
+  --focus:       #7CB1E8;
+}
+
+/* Expose the tokens to Tailwind so bg-paper / text-muted / border-rule work. */
+@theme inline {
+  --color-paper:       var(--paper);
+  --color-surface:     var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-ink:         var(--ink);
+  --color-muted:       var(--muted);
+  --color-rule:        var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-brand:       var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft:  var(--brand-soft);
+  --color-on-brand:    var(--on-brand);
+  --color-live:        var(--live);
+  --color-live-soft:   var(--live-soft);
+  --color-warn:        var(--warn);
+  --color-warn-soft:   var(--warn-soft);
+  --color-closed:      var(--closed);
+  --color-closed-soft: var(--closed-soft);
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, monospace;
+
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+html {
+  color-scheme: light dark;
+}
 
 body {
-  font-family: 'Poppins', sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar Styles */
-.scrollbar-thin {
-  scrollbar-width: thin;
+/*
+  The rule that makes this a system: anything counted is set in mono with
+  tabular figures, so ranks, scores, fees and deadlines align in columns.
+*/
+.num {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-.scrollbar-thumb-gray-700 {
-  scrollbar-color: #374151 transparent;
+/* Uppercase micro-label used for field keys, kickers and table headers. */
+.label {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.scrollbar-track-transparent {
-  scrollbar-color: #374151 transparent;
+/* Visible keyboard focus everywhere, without borrowing the brand colour. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
-/* Webkit Scrollbar Styles */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-}
+::placeholder { color: var(--muted); opacity: 1; }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Native controls follow the active theme instead of flashing white in dark. */
+input, select, textarea { color-scheme: inherit; }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: #374151;
-  border-radius: 2px;
-}
+/* Scrollbars */
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background-color: var(--rule-strong); border-radius: 4px; }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: #4b5563;
-}
+/* Horizontal tab strips keep their labels and scroll rather than collapsing. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* @keyframes pulseBorder {
-    0% {
-      border-color: rgba(80, 2, 2, 0.4);
-    }
-    50% {
-      border-color: rgba(255, 30, 0, 0.6);
-    }
-    100% {
-      border-color: rgba(255, 0, 0, 0.4);
-    }
-  } */
-  
-  .animate-border {
-    animation: pulseBorder 3s infinite alternate ease-in-out;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-
-  .bg-dark{
-    background-color: rgba(18, 11, 11, 1);
-  }
-
-  .bg-b-dark{
-    background-color: rgb(39, 33, 33);
-  }
-
-  .bg-white{
-    background-color: #ffffff;
-  }
-
-  .bg-red{
-    background-color: rgba(182, 46, 46, 1);
-  }
-
-  .text-red{
-    color:rgba(182, 46, 46, 1) ;
-  }
-
-  .border-red{
-    color:rgba(182, 46, 46, 1);
-  }
+}
